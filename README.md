@@ -2,9 +2,25 @@
 
 # mini-react
 
-> Virtual DOM 엔진 위에 올린 루트 전용 React runtime - Component, State, Hooks를 직접 구현하며 학습하는 프로젝트
+> A team-built Virtual DOM and root-only component runtime that demonstrates DOM/VDOM conversion, keyed diff/patch, history, and basic Hooks without React internals such as Fiber or scheduling.
+
+Virtual DOM 엔진 위에 root-only Component, State, Hooks runtime을 올려 React의 핵심 동작을 직접 추적하는 팀 학습 프로젝트입니다.
 
 ---
+
+## 공동 구현과 기여 범위
+
+이 저장소의 VDOM, diff, patch, history, runtime은 팀 설계와 페어 프로그래밍으로 완성했습니다. 아래 표는 공동 작업을 개인 단독 구현으로 바꾸지 않기 위해 Git에 직접 남은 commit과 이시원의 역할을 분리한 것입니다. 페어 프로그래밍 참여는 협업 맥락이며, 다른 팀원이 author인 core commit을 이시원의 단독 코드로 주장하지 않습니다.
+
+| 영역 | repository-visible 근거 |
+| --- | --- |
+| DOM ↔ VDOM conversion | team commit `6034aa9` |
+| diff / patch | team commits `19de11b`, `0155df9` |
+| history demo와 snapshot UI | team commits `b35ddac`, `35393af` |
+| root-only runtime과 Hooks | team commits `65739fe`, `966db01`, `c865689` |
+| 이시원 | 페어 프로그래밍·공동 설계 참여, demo integration/UI polish `d8d58da`, example pages `080a7d7`, README presentation `7137ba7`–`dd1b876` |
+
+Git commit은 author가 직접 남긴 변경 범위를 보여주지만, pair session의 대화와 공동 판단 전체를 기록하지는 않습니다. 따라서 core는 팀 결과로, 이시원의 개인 증거는 author commit이 확인되는 demo·UI·example·문서 범위로 제시합니다.
 
 ## 무엇을 만들었나
 
@@ -37,14 +53,6 @@
 | 최초 렌더 | `mount(container, initialProps)` |
 | 상태 변경 후 재렌더 | `update(nextProps)` -> diff -> patch |
 | 정리 | `unmount()` -> 모든 effect cleanup 실행 |
-
-### 제약 조건 (의도적 설계)
-
-- Hook과 State는 **루트 컴포넌트에서만** 사용 가능
-- 자식 컴포넌트는 `(props) => vnode` 형태의 **stateless plain function**
-- 상태는 모두 루트에서 관리하고, 자식은 화면 조각 렌더링만 담당
-
----
 
 ## 아키텍처
 
@@ -87,6 +95,22 @@ graph TD
     useRef -->|"같은 객체 유지"| MutableRef["mutable ref 보관"]
     useEffect -->|"commit 이후 실행"| SideEffects["localStorage / document.title"]
 ```
+
+---
+
+## 구현 근거
+
+| 동작 | 코드 | 테스트 |
+| --- | --- | --- |
+| DOM → VDOM | `src/lib/domToVdom.js` | `tests/lib/domToVdom.test.js` |
+| VDOM → DOM | `src/lib/vdomToDom.js` | `tests/lib/vdomToDom.test.js` |
+| diff와 keyed move | `src/lib/diff.js` | `tests/lib/diff.test.js` |
+| patch 적용 | `src/lib/applyPatches.js` | `tests/lib/applyPatches.test.js` |
+| undo/redo history | `src/history.js` | `tests/history.test.js` |
+| root runtime과 Hooks | `src/rootRuntime.js` | `tests/rootRuntime.test.js` |
+| demo entrypoint contract | `index.html`, `history-demo.html`, `runtime-demo.html` | `tests/entrypoints.test.js`, `runtimeDemoMarkup.test.js` |
+
+`diff()`는 새 tree를 만들지 않고 patch 목록을 계산하며, `applyPatches()`가 실제 DOM mutation을 담당합니다. history는 VDOM snapshot을 cursor로 이동해 undo/redo 대상을 관리합니다. runtime은 이 engine을 교체하지 않고 root component update의 render target으로 사용합니다.
 
 ---
 
@@ -243,7 +267,7 @@ mini-react로 구현한 메인 데모입니다.
 ## 실행
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -260,14 +284,19 @@ Vite 주소를 연 뒤 아래 페이지를 확인하세요.
 ## 테스트
 
 ```bash
-npm test
+npm test -- --run
+npm run build
 ```
 
-diff, patch, history, runtime 관련 테스트가 포함되어 있습니다.
+2026-07-18 기준 Vitest 10 files, 63 tests가 통과했고 Vite production build가 성공했습니다. diff, patch, history, runtime, demo entrypoint를 함께 검증합니다.
 
 ---
 
-## 실제 React와의 차이
+## 의도적인 제약과 한계
+
+- Hook과 State는 **루트 컴포넌트에서만** 사용할 수 있습니다.
+- 자식 컴포넌트는 `(props) => vnode` 형태의 stateless plain function입니다.
+- 상태는 root가 소유하고 자식은 props를 받아 화면 조각만 렌더링합니다.
 
 | 항목 | mini-react | React |
 |------|-----------|-------|
@@ -278,4 +307,4 @@ diff, patch, history, runtime 관련 테스트가 포함되어 있습니다.
 | Context / Reducer | ❌ | ✅ |
 | Batching | ❌ | ✅ |
 
-학습용 구현이므로 **작고 설명 가능한 구조**를 우선했습니다.
+또한 concurrent rendering, hydration, error boundary, synthetic event system을 구현하지 않았습니다. 학습용 구현이므로 **작고 설명 가능한 구조**와 patch 흐름의 관찰 가능성을 우선했습니다.
