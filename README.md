@@ -110,4 +110,4 @@ Vitest 63개가 component lifecycle, Hook slot, keyed diff, patch, history를 �
 
 ## 관련 프로젝트
 
-- [MiniReact](https://github.com/NearthYou/MiniReact): Virtual DOM 변환, diff, patch, undo와 redo를 구현한 별도 팀 프로젝트
+- [VirtualDOMPlayground](https://github.com/NearthYou/VirtualDOMPlayground): Virtual DOM 변환, diff, patch, undo와 redo를 구현한 별도 팀 프로젝트
